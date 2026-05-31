@@ -15,7 +15,24 @@ type EpgProgram = { start: string; end: string; title: string };
 type TVPlayerSourceType = 'm3u8' | 'flv' | 'native';
 
 const TV_LIVE_LAST_CHANNEL_KEY = 'tv_live_last_channel';
+const TV_VOLUME_KEY = 'tv_player_volume';
+const TV_MUTED_KEY = 'tv_player_muted';
 const REMOTE_KEY_DEDUPE_MS = 350;
+
+function loadTVVolumeState() {
+  if (typeof window === 'undefined') return { volume: 1, muted: false };
+
+  const savedVolume = Number(localStorage.getItem(TV_VOLUME_KEY));
+  const volume = Number.isFinite(savedVolume)
+    ? Math.max(0, Math.min(1, savedVolume))
+    : 1;
+  const savedMuted = localStorage.getItem(TV_MUTED_KEY);
+
+  return {
+    volume,
+    muted: savedMuted === null ? volume <= 0 : savedMuted === 'true',
+  };
+}
 
 function getLogoUrl(logo?: string, source?: string) {
   if (!logo) return '';
@@ -94,8 +111,9 @@ function TVLivePlayClient() {
   const [favorited, setFavorited] = useState(false);
   const [epgPrograms, setEpgPrograms] = useState<EpgProgram[]>([]);
   const [epgLoading, setEpgLoading] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [volume, setVolume] = useState(1);
+  const [initialVolumeState] = useState(loadTVVolumeState);
+  const [muted, setMuted] = useState(initialVolumeState.muted);
+  const [volume, setVolume] = useState(initialVolumeState.volume);
   const [showVolumeHint, setShowVolumeHint] = useState(false);
   const [channelHint, setChannelHint] = useState<{ number: number; name: string } | null>(null);
   const channelButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -222,6 +240,12 @@ function TVLivePlayClient() {
       // ignore storage failures
     }
   }, [channel, source]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(TV_VOLUME_KEY, String(volume));
+    localStorage.setItem(TV_MUTED_KEY, String(muted));
+  }, [muted, volume]);
 
   useEffect(() => {
     if (!playbackError || !channel || retryCount >= 3) return;

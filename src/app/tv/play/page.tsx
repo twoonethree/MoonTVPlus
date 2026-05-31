@@ -67,6 +67,8 @@ const TV_DANMAKU_SPAWN_GRACE = 0.6;
 const TV_DANMAKU_SEEK_WINDOW = 8;
 const TV_DANMAKU_MAX_ITEMS = 3000;
 const TV_DANMAKU_SETTINGS_KEY = 'tv_danmaku_settings';
+const TV_VOLUME_KEY = 'tv_player_volume';
+const TV_MUTED_KEY = 'tv_player_muted';
 
 type TVDanmakuSettings = {
   fontSize: number;
@@ -79,6 +81,21 @@ const DEFAULT_TV_DANMAKU_SETTINGS: TVDanmakuSettings = {
   displayArea: 42,
   opacity: 0.75,
 };
+
+function loadTVVolumeState() {
+  if (typeof window === 'undefined') return { volume: 1, muted: false };
+
+  const savedVolume = Number(localStorage.getItem(TV_VOLUME_KEY));
+  const volume = Number.isFinite(savedVolume)
+    ? Math.max(0, Math.min(1, savedVolume))
+    : 1;
+  const savedMuted = localStorage.getItem(TV_MUTED_KEY);
+
+  return {
+    volume,
+    muted: savedMuted === null ? volume <= 0 : savedMuted === 'true',
+  };
+}
 
 function loadTVDanmakuSettings(): TVDanmakuSettings {
   if (typeof window === 'undefined') return DEFAULT_TV_DANMAKU_SETTINGS;
@@ -218,8 +235,9 @@ function TVPlayClient() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [favorited, setFavorited] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [volume, setVolume] = useState(1);
+  const [initialVolumeState] = useState(loadTVVolumeState);
+  const [muted, setMuted] = useState(initialVolumeState.muted);
+  const [volume, setVolume] = useState(initialVolumeState.volume);
   const [showVolumeHint, setShowVolumeHint] = useState(false);
   const [seekHint, setSeekHint] = useState<{
     current: number;
@@ -402,6 +420,12 @@ function TVPlayClient() {
     if (typeof window !== 'undefined')
       localStorage.setItem('tv_playback_rate', String(playbackRate));
   }, [playbackRate]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(TV_VOLUME_KEY, String(volume));
+    localStorage.setItem(TV_MUTED_KEY, String(muted));
+  }, [muted, volume]);
 
   useEffect(() => {
     let alive = true;
